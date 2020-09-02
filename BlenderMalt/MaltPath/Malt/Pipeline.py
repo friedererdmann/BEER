@@ -85,19 +85,22 @@ class Pipeline(object):
     def setup_render_targets(self, resolution):
         pass
 
-    def draw_screen_pass(self, shader, target):
+    def draw_screen_pass(self, shader, target, blend = False):
         glDisable(GL_DEPTH_TEST)
         glDisable(GL_CULL_FACE)
+        if blend:
+            glEnable(GL_BLEND)
+        else:
+            glDisable(GL_BLEND)
         target.bind()
         shader.bind()
         self.quad.draw()
     
     def blend_texture(self, blend_texture, target, opacity):
-        glEnable(GL_BLEND)
-        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
         self.blend_shader.textures['blend_texture'] = blend_texture
         self.blend_shader.uniforms['opacity'].set_value(opacity)
-        self.draw_screen_pass(self.blend_shader, target)
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
+        self.draw_screen_pass(self.blend_shader, target, True)
     
     def draw_scene_pass(self, render_target, objects, pass_name=None, default_shader=None, uniform_blocks={}, uniforms={}, textures={}):
         glDisable(GL_BLEND)
@@ -109,17 +112,20 @@ class Pipeline(object):
         for obj in objects:
             if obj.mesh and obj.mesh.parameters['double_sided']:
                 glDisable(GL_CULL_FACE)
+                glCullFace(GL_BACK)
             else:
                 glEnable(GL_CULL_FACE)
 
             if obj.negative_scale:
-                glCullFace(GL_FRONT)
+                glFrontFace(GL_CW)
             else:
-                glCullFace(GL_BACK)
+                glFrontFace(GL_CCW)
 
             shader = default_shader
             if obj.material and pass_name in obj.material.shader and obj.material.shader[pass_name]:
                 shader = obj.material.shader[pass_name]
+            
+            shader.uniforms['MIRROR_SCALE'].set_value(obj.negative_scale)
             
             for name, uniform in uniforms.items():
                 if name in shader.uniforms:
@@ -155,6 +161,7 @@ class Pipeline(object):
     def compile_shader_from_source(self, shader_source, vertex_pass=None, pixel_pass=None, include_paths=[], defines=[]):
         include_paths.extend(Pipeline.SHADER_INCLUDE_PATHS)
         
+        #TODO: auto-define the pass name
         vertex = shader_preprocessor(shader_source, include_paths, ['VERTEX_SHADER'] + defines, vertex_pass)
         pixel = shader_preprocessor(shader_source, include_paths, ['PIXEL_SHADER'] + defines, pixel_pass)
 

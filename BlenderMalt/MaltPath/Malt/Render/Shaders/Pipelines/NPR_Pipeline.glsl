@@ -34,6 +34,8 @@ uniform sampler2D IN_NORMAL_DEPTH;
 uniform sampler2D IN_ID;
 
 layout (location = 0) out vec4 OUT_COLOR;
+layout (location = 1) out vec4 OUT_LINE_COLOR;
+layout (location = 2) out vec4 OUT_LINE_DATA;
 
 void DEFAULT_MAIN_PASS_PIXEL_SHADER()
 {
@@ -121,6 +123,50 @@ float get_line_simple(float width, float depth_threshold, float normal_threshold
                 lo.delta_angle > normal_threshold;
     
     return float(line);
+}
+
+float get_line_advanced(
+    float id_boundary_width,
+    float min_depth_threshold, float max_depth_threshold, float min_depth_width, float max_depth_width,
+    float min_angle_threshold, float max_angle_threshold, float min_angle_width, float max_angle_width
+)
+{
+    LineOutput lo = line_ex(
+        1.0,
+        1,
+        LINE_DEPTH_MODE_NEAR,
+        screen_uv(),
+        IN_NORMAL_DEPTH,
+        3,
+        IN_NORMAL_DEPTH,
+        IN_ID,
+        0
+    );
+
+    float line = lo.id_boundary ? id_boundary_width : 0.0;
+    
+    if(lo.delta_distance > min_depth_threshold)
+    {
+        float depth = map_range_clamped(
+            lo.delta_distance, 
+            min_depth_threshold, max_depth_threshold,
+            min_depth_width, max_depth_width
+        );
+
+        line = max(line, depth);
+    }
+    if(lo.delta_angle > min_angle_threshold)
+    {
+        float angle = map_range_clamped(
+            lo.delta_angle, 
+            min_angle_threshold, max_angle_threshold,
+            min_angle_width, max_angle_width
+        );
+
+        line = max(line, angle);
+    }
+
+    return line;
 }
 
 #endif //MAIN_PASS

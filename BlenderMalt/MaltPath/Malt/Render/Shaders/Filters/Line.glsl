@@ -166,13 +166,17 @@ LineOutput line_ex(
 
             if(is_ortho(PROJECTION))
             {
+                //TODO: Use ray-plane intersection here too.
                 delta_distance = abs(sampled_position.z - position.z);
+                delta_distance *= dot(normal, view_direction());
             }
             else
             {
                 vec3 ray_origin = vec3(0);
                 vec3 ray_direction = normalize(sampled_position);
 
+                //TODO: Improve numerical stability
+                //Sometimes the normal is almost perpendicular to the camera so expected distance is very high
                 float expected_distance = ray_plane_intersection
                 (
                     ray_origin, ray_direction,
@@ -181,7 +185,6 @@ LineOutput line_ex(
 
                 delta_distance = abs(distance(sampled_position, ray_origin) - expected_distance);
             }
-
 
             if
             (
